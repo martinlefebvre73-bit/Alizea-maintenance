@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulaire d'Entrée de Données - Maintenance & Suivis</title>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-hover: #1d4ed8;
+            --bg-main: #f8fafc;
+            --card-bg: #ffffff;
+            --border-color: #cbd5e1;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --accent-red: #ef4444;
+            --accent-green: #22c55e;
+            --accent-amber: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 24px 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .form-body {
+            padding: 24px 30px;
+        }
+
+        /* Top Bar Info */
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-size: 0.825rem;
+            font-weight: 700;
+            color: var(--text-main);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-speech-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px 40px 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            background-color: #f8fafc;
+            transition: all 0.2s ease;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+            padding-right: 44px;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary-hover);
+            background-color: #fff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        /* Speech Button Styles */
+        .btn-mic {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .textarea-wrapper .btn-mic {
+            top: 12px;
+            transform: none;
+        }
+
+        .btn-mic:hover {
+            color: var(--primary);
+            border-color: var(--primary);
+            background-color: #eff6ff;
+        }
+
+        .btn-mic.listening {
+            background-color: var(--accent-red);
+            color: white;
+            border-color: var(--accent-red);
+            animation: pulse 1.2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        /* Sections */
+        .section-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 18px;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 1rem;
+            color: var(--primary);
+            margin-bottom: 14px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Checkbox Grid */
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 10px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            font-weight: normal;
+            cursor: pointer;
+            padding: 6px 8px;
+            border-radius: 4px;
+            transition: background-color 0.15s;
+        }
+
+        .checkbox-label:hover {
+            background-color: #f1f5f9;
+        }
+
+        .checkbox-label input {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+        }
+
+        /* Dynamic Table */
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            min-width: 600px;
+        }
+
+        th {
+            background: #f1f5f9;
+            padding: 10px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            border: 1px solid #e2e8f0;
+            text-align: left;
+        }
+
+        td {
+            padding: 8px;
+            border: 1px solid #e2e8f0;
+            vertical-align: middle;
+        }
+
+        td input, td select {
+            padding: 6px 36px 6px 8px;
+            font-size: 0.875rem;
+        }
+
+        /* Status Toast */
+        #speech-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1e293b;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 30px;
+            font-size: 0.875rem;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+        }
+
+        /* Actions Bar */
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: #e2e8f0;
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover {
+            background-color: #cbd5e1;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Formulaire d'Entrée de Données</h1>
+        <p>Maintenance & Suivis — Génération automatique des registres d'interventions</p>
+    </header>
+
+    <form class="form-body" id="maintenanceForm">
+        
+        <!-- En-tête / Informations générales -->
+        <div class="grid-3">
+            <div class="field-group">
+                <label for="date_quart">Date du quart</label>
+                <input type="date" id="date_quart" name="date_quart" required>
+            </div>
+            <div class="field-group">
+                <label for="horaire_quart">Horaire / Quart de travail</label>
+                <div class="input-speech-wrapper">
+                    <input type="text" id="horaire_quart" name="horaire_quart" placeholder="ex: Jour / 08h-16h">
+                    <button type="button" class="btn-mic" onclick="toggleDictation('horaire_quart', this)" title="Dicter le texte">
+                        <i data-lucide="mic"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="field-group">
+                <label for="nom_technicien">Nom Technicien / Appréciateur</label>
+                <div class="input-speech-wrapper">
+                    <input type="text" id="nom_technicien" name="nom_technicien" placeholder="Nom et prénom">
+                    <button type="button" class="btn-mic" onclick="toggleDictation('nom_technicien', this)" title="Dicter le texte">
+                        <i data-lucide="mic"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 1 -->
+        <div class="section-card">
+            <div class="section-title">
+                <i data-lucide="check-square"></i> 1. Sujets Traités & Types d'Intervention
+            </div>
+            <div class="checkbox-grid">
+                <label class="checkbox-label"><input type="checkbox" name="sujets" value="Appels de service complétés"> Appels de service complétés</label>
+                <label class="checkbox-label"><input type="checkbox" name="sujets" value="Inspection générale des installations"> Inspection générale des installations</label>
+                <label class="checkbox-label"><input type="checkbox" name="sujets" value="Intervention d'urgence"> Intervention d'urgence</label>
+                <label class="checkbox-label"><input type="checkbox" name="sujets" value="Suivi travaux en cours"> Suivi travaux en cours</label>
+                <label class="checkbox-label"><input type="checkbox" name="sujets" value="Vérification équipements mécaniques"> Vérification équipements mécaniques</label>
+                <label class="checkbox-label"><input type="checkbox" name="sujets" value="Vérification systèmes électriques"> Vérification systèmes électriques</label>
+                <label class="checkbox-label"><input type="checkbox" name="sujets" value="Nettoyage/entretien installations"> Nettoyage/entretien installations</label>
+                <div class="input-speech-wrapper" style="grid-column: span 1;">
+                    <input type="text" id="sujet_autre" name="sujet_autre" placeholder="Autre (préciser)...">
+                    <button type="button" class="btn-mic" onclick="toggleDictation('sujet_autre', this)" title="Dicter">
+                        <i data-lucide="mic"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2 -->
+        <div class="section-card">
+            <div class="section-title">
+                <i data-lucide="list"></i> 2. Registre des Appels de Service & Interventions
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 5%;">#</th>
+                            <th style="width: 15%;">Logement</th>
+                            <th style="width: 20%;">Type / Sujet</th>
+                            <th style="width: 35%;">Détail de l'intervention / Travaux</th>
+                            <th style="width: 13%;">Statut</th>
+                            <th style="width: 12%;">Suivi Requis?</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1</td>
+                            <td>
+                                <div class="input-speech-wrapper">
+                                    <input type="text" id="logement_1" name="logement_1" placeholder="Apt / Local">
+                                    <button type="button" class="btn-mic" onclick="toggleDictation('logement_1', this)"><i data-lucide="mic"></i></button>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="input-speech-wrapper">
+                                    <input type="text" id="type_1" name="type_1" placeholder="Plomberie, etc.">
+                                    <button type="button" class="btn-mic" onclick="toggleDictation('type_1', this)"><i data-lucide="mic"></i></button>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="input-speech-wrapper">
+                                    <input type="text" id="detail_1" name="detail_1" placeholder="Travaux effectués...">
+                                    <button type="button" class="btn-mic" onclick="toggleDictation('detail_1', this)"><i data-lucide="mic"></i></button>
+                                </div>
+                            </td>
+                            <td>
+                                <select id="statut_1" name="statut_1">
+                                    <option value="Fait">Fait</option>
+                                    <option value="En cours">En cours</option>
+                                </select>
+                            </td>
+                            <td>
+                                <select id="suivi_1" name="suivi_1">
+                                    <option value="Non">Non</option>
+                                    <option value="Oui">Oui</option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>2</td>
+                            <td>
+                                <div class="input-speech-wrapper">
+                                    <input type="text" id="logement_2" name="logement_2" placeholder="Apt / Local">
+                                    <button type="button" class="btn-mic" onclick="toggleDictation('logement_2', this)"><i data-lucide="mic"></i></button>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="input-speech-wrapper">
+                                    <input type="text" id="type_2" name="type_2" placeholder="Sujet">
+                                    <button type="button" class="btn-mic" onclick="toggleDictation('type_2', this)"><i data-lucide="mic"></i></button>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="input-speech-wrapper">
+                                    <input type="text" id="detail_2" name="detail_2" placeholder="Détails...">
+                                    <button type="button" class="btn-mic" onclick="toggleDictation('detail_2', this)"><i data-lucide="mic"></i></button>
+                                </div>
+                            </td>
+                            <td>
+                                <select id="statut_2" name="statut_2">
+                                    <option value="Fait">Fait</option>
+                                    <option value="En cours">En cours</option>
+                                </select>
+                            </td>
+                            <td>
+                                <select id="suivi_2" name="suivi_2">
+                                    <option value="Non">Non</option>
+                                    <option value="Oui">Oui</option>
+                                </select>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Section 3 -->
+        <div class="section-card">
+            <div class="section-title">
+                <i data-lucide="droplet"></i> 3. Particularités & Entretien Piscine / Installations d'Eau
+            </div>
+            <div class="grid-3" style="margin-bottom: 12px;">
+                <div>
+                    <label>Actions</label>
+                    <div style="margin-top: 6px;">
+                        <label class="checkbox-label"><input type="checkbox" id="nettoyage_effectue" name="piscine_nettoyage" value="Oui"> Nettoyage effectué</label>
+                        <label class="checkbox-label"><input type="checkbox" id="produit_ajuste" name="piscine_produit" value="Oui"> Produit chimique ajusté</label>
+                    </div>
+                </div>
+                <div>
+                    <label>État Général</label>
+                    <div style="margin-top: 6px;">
+                        <label class="checkbox-label"><input type="radio" name="etat_piscine" value="Conforme" checked> Conforme</label>
+                        <label class="checkbox-label"><input type="radio" name="etat_piscine" value="Non conforme"> Non conforme</label>
+                    </div>
+                </div>
+            </div>
+            <div class="field-group textarea-wrapper">
+                <label for="details_piscine">Détails Piscine & Valeurs Mesurées (pH, Chlore, Alcalinité, etc.)</label>
+                <div class="input-speech-wrapper">
+                    <textarea id="details_piscine" name="details_piscine" placeholder="Entrez ou dictez les mesures et observations..."></textarea>
+                    <button type="button" class="btn-mic" onclick="toggleDictation('details_piscine', this)" title="Dicter le texte">
+                        <i data-lucide="mic"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4 -->
+        <div class="section-card">
+            <div class="section-title">
+                <i data-lucide="alert-triangle"></i> 4. Suivi des Travaux en Cours & Interventions d'Urgence
+            </div>
+            <div class="field-group textarea-wrapper" style="margin-bottom: 14px;">
+                <label for="urgence_details">Interventions d'Urgence (Détails, actions immédiates et risques)</label>
+                <div class="input-speech-wrapper">
+                    <textarea id="urgence_details" name="urgence_details" placeholder="Renseigner les urgences ou situations à risque..."></textarea>
+                    <button type="button" class="btn-mic" onclick="toggleDictation('urgence_details', this)"><i data-lucide="mic"></i></button>
+                </div>
+            </div>
+            <div class="field-group textarea-wrapper">
+                <label for="travaux_pieces">Suivi Travaux en Cours & Commandes de Pièces à Prévoir</label>
+                <div class="input-speech-wrapper">
+                    <textarea id="travaux_pieces" name="travaux_pieces" placeholder="Pièces requises, matériel à commander..."></textarea>
+                    <button type="button" class="btn-mic" onclick="toggleDictation('travaux_pieces', this)"><i data-lucide="mic"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5 -->
+        <div class="section-card">
+            <div class="section-title">
+                <i data-lucide="file-text"></i> 5. Autres Observations, Variantes & Validation
+            </div>
+            <div class="field-group textarea-wrapper" style="margin-bottom: 14px;">
+                <label for="autres_obs">Autres Observations / Variantes</label>
+                <div class="input-speech-wrapper">
+                    <textarea id="autres_obs" name="autres_obs" placeholder="Remarques complémentaires..."></textarea>
+                    <button type="button" class="btn-mic" onclick="toggleDictation('autres_obs', this)"><i data-lucide="mic"></i></button>
+                </div>
+            </div>
+            <div class="grid-3">
+                <div class="field-group">
+                    <label for="nom_validation">Nom du Technicien</label>
+                    <div class="input-speech-wrapper">
+                        <input type="text" id="nom_validation" name="nom_validation">
+                        <button type="button" class="btn-mic" onclick="toggleDictation('nom_validation', this)"><i data-lucide="mic"></i></button>
+                    </div>
+                </div>
+                <div class="field-group" style="grid-column: span 2;">
+                    <label for="sig_validation">Signature / Code de Validation</label>
+                    <input type="text" id="sig_validation" name="sig_validation" placeholder="Saisir la signature numérique ou l'initiale">
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+            <button type="reset" class="btn btn-secondary"><i data-lucide="rotate-ccw"></i> Réinitialiser</button>
+            <button type="submit" class="btn btn-primary"><i data-lucide="download"></i> Enregistrer & Télécharger (.json)</button>
+        </div>
+    </form>
+</div>
+
+<!-- Indicator floating status -->
+<div id="speech-status">
+    <i data-lucide="mic"></i> <span id="status-text">Écoute en cours... Parlez maintenant.</span>
+</div>
+
+<script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Check Speech Recognition Support
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let activeBtn = null;
+    let activeInputId = null;
+
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.lang = 'fr-FR';
+        recognition.interimResults = false;
+
+        recognition.onstart = function() {
+            document.getElementById('speech-status').style.display = 'flex';
+            if (activeBtn) activeBtn.classList.add('listening');
+        };
+
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            const targetInput = document.getElementById(activeInputId);
+            if (targetInput) {
+                if (targetInput.value.length > 0) {
+                    targetInput.value += ' ' + transcript;
+                } else {
+                    targetInput.value = transcript;
+                }
+            }
+        };
+
+        recognition.onerror = function(event) {
+            console.error("Speech Recognition Error: ", event.error);
+            stopDictation();
+            alert("Erreur de reconnaissance vocale : " + event.error);
+        };
+
+        recognition.onend = function() {
+            stopDictation();
+        };
+    } else {
+        console.warn("La reconnaissance vocale Web Speech API n'est pas supportée par ce navigateur.");
+    }
+
+    function toggleDictation(inputId, btn) {
+        if (!SpeechRecognition) {
+            alert("La reconnaissance vocale n'est pas supportée par votre navigateur. Veuillez utiliser Chrome, Edge ou Safari.");
+            return;
+        }
+
+        if (activeBtn === btn) {
+            recognition.stop();
+            stopDictation();
+            return;
+        }
+
+        if (activeBtn) {
+            stopDictation();
+        }
+
+        activeBtn = btn;
+        activeInputId = inputId;
+
+        try {
+            recognition.start();
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function stopDictation() {
+        document.getElementById('speech-status').style.display = 'none';
+        if (activeBtn) {
+            activeBtn.classList.remove('listening');
+            activeBtn = null;
+            activeInputId = null;
+        }
+    }
+
+    // Option 1: Telechargement automatique du fichier JSON lors de la sauvegarde
+    document.getElementById('maintenanceForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const data = {};
+        
+        // Handle normal fields and multi-value checkboxes
+        formData.forEach((value, key) => {
+            if (data[key]) {
+                if (!Array.isArray(data[key])) {
+                    data[key] = [data[key]];
+                }
+                data[key].push(value);
+            } else {
+                data[key] = value;
+            }
+        });
+
+        const dateQuart = document.getElementById('date_quart').value || 'sans_date';
+        const fileName = `rapport_maintenance_${dateQuart}.json`;
+
+        // Create Blob and download link
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const downloadAnchor = document.createElement('a');
+        
+        downloadAnchor.setAttribute("href", url);
+        downloadAnchor.setAttribute("download", fileName);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        
+        // Clean up
+        downloadAnchor.remove();
+        URL.revokeObjectURL(url);
+
+        alert(`Le rapport de maintenance a été téléchargé sous le nom "${fileName}" !`);
+    });
+</script>
+</body>
+</html>
