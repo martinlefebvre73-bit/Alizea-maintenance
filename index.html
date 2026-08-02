@@ -532,15 +532,16 @@
                 </div>
             </div>
         </div>
-<!-- Section Historique des sauvegardes -->
-<div id="sectionHistorique" style="margin-top: 30px; padding: 15px; border-top: 2px solid #ccc;">
-  <h2>Historique des vérifications</h2>
-  <button id="btnRafraichir" type="button">Rafraîchir la liste</button>
-  
-  <ul id="listeSauvegardes" style="margin-top: 15px;">
-    <li>Chargement des sauvegardes...</li>
-  </ul>
-</div>
+
+        <!-- Section Historique des sauvegardes -->
+        <div id="sectionHistorique" style="margin-top: 30px; padding: 15px; border-top: 2px solid #ccc;">
+            <h2>Historique des vérifications</h2>
+            <button id="btnRafraichir" type="button" class="btn btn-secondary" style="margin-top: 10px;">Rafraîchir la liste</button>
+            <ul id="listeSauvegardes" style="margin-top: 15px; list-style-type: none;">
+                <li>Chargement des sauvegardes...</li>
+            </ul>
+        </div>
+
         <!-- Form Actions -->
         <div class="form-actions">
             <button type="reset" class="btn btn-secondary"><i data-lucide="rotate-ccw"></i> Réinitialiser</button>
@@ -555,10 +556,15 @@
 </div>
 
 <script>
+    // Configuration du dépôt GitHub
+    const GITHUB_USERNAME = 'martinlefebvre73-bit';
+    const REPO_NAME = 'Alizea-maintenance';
+    const GITHUB_TOKEN = 'votre_token_github_ici'; // Remplacez par votre jeton d'accès
+
     // Initialize Lucide Icons
     lucide.createIcons();
 
-    // Check Speech Recognition Support
+    // Reconnaissance vocale Web Speech API
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let activeBtn = null;
@@ -567,7 +573,7 @@
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
         recognition.continuous = false;
-        recognition.lang = 'fr-FR';
+        recognition.lang = 'fr-CA';
         recognition.interimResults = false;
 
         recognition.onstart = function() {
@@ -579,16 +585,12 @@
             const transcript = event.results[0][0].transcript;
             const targetInput = document.getElementById(activeInputId);
             if (targetInput) {
-                if (targetInput.value.length > 0) {
-                    targetInput.value += ' ' + transcript;
-                } else {
-                    targetInput.value = transcript;
-                }
+                targetInput.value = targetInput.value ? targetInput.value + ' ' + transcript : transcript;
             }
         };
 
         recognition.onerror = function(event) {
-            console.error("Speech Recognition Error: ", event.error);
+            console.error("Erreur de reconnaissance vocale : ", event.error);
             stopDictation();
             alert("Erreur de reconnaissance vocale : " + event.error);
         };
@@ -596,13 +598,11 @@
         recognition.onend = function() {
             stopDictation();
         };
-    } else {
-        console.warn("La reconnaissance vocale Web Speech API n'est pas supportée par ce navigateur.");
     }
 
     function toggleDictation(inputId, btn) {
         if (!SpeechRecognition) {
-            alert("La reconnaissance vocale n'est pas supportée par votre navigateur. Veuillez utiliser Chrome, Edge ou Safari.");
+            alert("La reconnaissance vocale n'est pas supportée par votre navigateur.");
             return;
         }
 
@@ -635,14 +635,54 @@
         }
     }
 
-    // Option 1: Telechargement automatique du fichier JSON lors de la sauvegarde
+    // Sauvegarde automatique vers GitHub API
+    async function sauvegarderRapportSurGitHub(donneesFormulaire) {
+        const maintenant = new Date();
+        const horodatage = maintenant.toISOString().replace(/[:.]/g, '-');
+        const nomFichier = `sauvegardes/verification_${horodatage}.json`;
+
+        const contenuFichier = JSON.stringify(donneesFormulaire, null, 2);
+        const encoder = new TextEncoder();
+        const data = encoder.encode(contenuFichier);
+        const base64Content = btoa(String.fromCharCode(...data));
+
+        const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${nomFichier}`;
+
+        try {
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `token ${GITHUB_TOKEN}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/vnd.github.v3+json'
+                },
+                body: JSON.stringify({
+                    message: `Ajout automatique du rapport de vérification ${horodatage}`,
+                    content: base64Content
+                })
+            });
+
+            if (response.ok) {
+                console.log('Fichier créé sur GitHub :', nomFichier);
+                chargerHistoriqueSauvegardes();
+            } else {
+                const errorData = await response.json();
+                console.error('Erreur API GitHub :', errorData);
+            }
+        } catch (err) {
+            console.error('Erreur réseau GitHub :', err);
+        }
+    }
+
+    // Gestionnaire de soumission du formulaire
     document.getElementById('maintenanceForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
         const formData = new FormData(this);
-        const data = {};
+        const data = {
+            horodatage_creation: new Date().toLocaleString('fr-CA')
+        };
         
-        // Handle normal fields and multi-value checkboxes
         formData.forEach((value, key) => {
             if (data[key]) {
                 if (!Array.isArray(data[key])) {
@@ -654,10 +694,10 @@
             }
         });
 
+        // 1. Téléchargement du fichier local JSON
         const dateQuart = document.getElementById('date_quart').value || 'sans_date';
         const fileName = `rapport_maintenance_${dateQuart}.json`;
 
-        // Create Blob and download link
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const downloadAnchor = document.createElement('a');
@@ -666,165 +706,72 @@
         downloadAnchor.setAttribute("download", fileName);
         document.body.appendChild(downloadAnchor);
         downloadAnchor.click();
-        
-        // Clean up
         downloadAnchor.remove();
         URL.revokeObjectURL(url);
 
-        alert(`Le rapport de maintenance a été téléchargé sous le nom "${fileName}" !`);
+        // 2. Enregistrement asynchrone sur GitHub
+        sauvegarderRapportSurGitHub(data);
+
+        alert(`Rapport enregistré et téléchargé sous le nom "${fileName}" !`);
+    });
+
+    // Chargement de l'historique depuis GitHub
+    async function chargerHistoriqueSauvegardes() {
+        const listeElement = document.getElementById('listeSauvegardes');
+        if (!listeElement) return;
+
+        listeElement.innerHTML = '<li>Chargement en cours...</li>';
+        const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/sauvegardes`;
+
+        try {
+            const response = await fetch(url);
+            
+            if (response.status === 404) {
+                listeElement.innerHTML = '<li>Aucune sauvegarde trouvée pour le moment.</li>';
+                return;
+            }
+
+            if (!response.ok) throw new Error('Erreur lors de la récupération');
+
+            const fichiers = await response.json();
+            listeElement.innerHTML = '';
+
+            const fichiersJson = fichiers.filter(f => f.name.endsWith('.json'));
+
+            if (fichiersJson.length === 0) {
+                listeElement.innerHTML = '<li>Aucun rapport enregistré.</li>';
+                return;
+            }
+
+            fichiersJson.reverse().forEach(fichier => {
+                const li = document.createElement('li');
+                li.style.marginBottom = '8px';
+
+                const nomPropre = fichier.name
+                    .replace('verification_', 'Vérification du ')
+                    .replace('.json', '')
+                    .replace(/T/, ' à ')
+                    .replace(/-/g, ':');
+
+                li.innerHTML = `<a href="${fichier.html_url}" target="_blank" rel="noopener noreferrer">📄 ${nomPropre}</a>`;
+                listeElement.appendChild(li);
+            });
+
+        } catch (erreur) {
+            console.error(erreur);
+            listeElement.innerHTML = '<li style="color:red;">Impossible de charger l\'historique.</li>';
+        }
+    }
+
+    // Événements au chargement DOM
+    document.addEventListener('DOMContentLoaded', function() {
+        chargerHistoriqueSauvegardes();
+
+        const btnRafraichir = document.getElementById('btnRafraichir');
+        if (btnRafraichir) {
+            btnRafraichir.addEventListener('click', chargerHistoriqueSauvegardes);
+        }
     });
 </script>
-    // Configuration de votre dépôt GitHub
-const GITHUB_USERNAME = 'martinlefebvre73-bit';
-const REPO_NAME = 'Alizea-maintenance';
-const GITHUB_TOKEN = 'votre_token_github_ici'; // Remplacez par votre jeton d'accès
-
-/**
- * Fonction pour enregistrer un fichier de vérification sur GitHub
- * @param {Object} donneesFormulaire Les données collectées
- */
-async function sauvegarderRapportSurGitHub(donneesFormulaire) {
-  // 1. Générer un nom de fichier unique basé sur la date et l'heure
-  const maintenant = new Date();
-  const horodatage = maintenant.toISOString().replace(/[:.]/g, '-');
-  const nomFichier = `sauvegardes/verification_${horodatage}.json`;
-
-  // 2. Préparer le contenu du fichier (JSON formaté)
-  const contenuFichier = JSON.stringify(donneesFormulaire, null, 2);
-
-  // L'API GitHub exige que le contenu du fichier soit encodé en Base64
-  // Utilisation de TextEncoder / btoa pour gérer correctement les accents UTF-8
-  const encoder = new TextEncoder();
-  const data = encoder.encode(contenuFichier);
-  const base64Content = btoa(String.fromCharCode(...data));
-
-  // 3. Préparer la requête vers l'API GitHub
-  const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${nomFichier}`;
-
-  try {
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `token ${GITHUB_TOKEN}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/vnd.github.v3+json'
-      },
-      body: JSON.stringify({
-        message: `Ajout automatique du rapport de vérification ${horodatage}`,
-        content: base64Content
-      })
-    });
-
-    if (response.ok) {
-      alert('Copie de la vérification enregistrée avec succès sur GitHub !');
-      console.log('Fichier créé :', nomFichier);
-    } else {
-      const errorData = await response.json();
-      console.error('Erreur API GitHub :', errorData);
-      alert('Erreur lors de l\'enregistrement sur GitHub.');
-    }
-  } catch (err) {
-    console.error('Erreur réseau ou script :', err);
-    alert('Impossible de contacter GitHub.');
-  }
-}
-    // Attendre que toute la page HTML soit bien chargée
-document.addEventListener('DOMContentLoaded', function() {
-  
-  // 1. Repérer le formulaire HTML par son ID (Exemple: <form id="formulaireMaintenance">)
-  const monFormulaire = document.getElementById('formulaireMaintenance'); 
-
-  if (monFormulaire) {
-    monFormulaire.addEventListener('submit', function(e) {
-      e.preventDefault(); // Empêche la page de se recharger
-
-      // 2. Récupérer les valeurs saisies ou dictées dans vos champs
-      const donneesVerification = {
-        date: new Date().toLocaleString('fr-CA'),
-        // Remplacez les ID entre guillemets par les vrais 'id' de vos champs HTML
-        intervenant: document.getElementById('champIntervenant')?.value || '',
-        equipement: document.getElementById('champEquipement')?.value || '',
-        notes: document.getElementById('champDictation')?.value || '',
-        statut: document.getElementById('champStatut')?.value || ''
-      };
-
-      // 3. Exécuter la sauvegarde vers GitHub
-      sauvegarderRapportSurGitHub(donneesVerification);
-    });
-  } else {
-    console.warn("Le formulaire spécifié n'a pas été trouvé dans le HTML.");
-  }
-
-});
-    // Configuration du dépôt
-const GITHUB_USERNAME = 'martinlefebvre73-bit';
-const REPO_NAME = 'Alizea-maintenance';
-
-/**
- * Récupère et affiche la liste des fichiers du dossier /sauvegardes
- */
-async function chargerHistoriqueSauvegardes() {
-  const listeElement = document.getElementById('listeSauvegardes');
-  if (!listeElement) return;
-
-  listeElement.innerHTML = '<li>Chargement en cours...</li>';
-
-  const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/sauvegardes`;
-
-  try {
-    const response = await fetch(url);
-    
-    if (response.status === 404) {
-      listeElement.innerHTML = '<li>Aucune sauvegarde trouvée pour le moment.</li>';
-      return;
-    }
-
-    if (!response.ok) throw new Error('Erreur lors de la récupération');
-
-    const fichiers = await response.json();
-    listeElement.innerHTML = ''; // Vider la liste
-
-    // Filtrer pour ne garder que les fichiers .json
-    const fichiersJson = fichiers.filter(f => f.name.endsWith('.json'));
-
-    if (fichiersJson.length === 0) {
-      listeElement.innerHTML = '<li>Aucun rapport enregistrer.</li>';
-      return;
-    }
-
-    // Parcourir et afficher chaque fichier sous forme de lien
-    fichiersJson.reverse().forEach(fichier => {
-      const li = document.createElement('li');
-      li.style.marginBottom = '8px';
-
-      // Nettoyer le nom du fichier pour un affichage plus propre
-      const nomPropre = fichier.name
-        .replace('verification_', 'Vérification du ')
-        .replace('.json', '')
-        .replace(/T/, ' à ')
-        .replace(/-/g, ':');
-
-      li.innerHTML = `<a href="${fichier.html_url}" target="_blank" rel="noopener noreferrer">📄 ${nomPropre}</a>`;
-      listeElement.appendChild(li);
-    });
-
-  } catch (erreur) {
-    console.error(erreur);
-    listeElement.innerHTML = '<li style="color:red;">Impossible de charger l\'historique.</li>';
-  }
-}
-
-// Déclencher le chargement automatique au lancement de la page
-document.addEventListener('DOMContentLoaded', function() {
-  // Charger l'historique au chargement initial
-  chargerHistoriqueSauvegardes();
-
-  // Relier le bouton de rafraîchissement s'il existe
-  const btnRafraichir = document.getElementById('btnRafraichir');
-  if (btnRafraichir) {
-    btnRafraichir.addEventListener('click', chargerHistoriqueSauvegardes);
-  }
-});  
-    </script>
 </body>
 </html>
