@@ -532,7 +532,15 @@
                 </div>
             </div>
         </div>
-
+<!-- Section Historique des sauvegardes -->
+<div id="sectionHistorique" style="margin-top: 30px; padding: 15px; border-top: 2px solid #ccc;">
+  <h2>Historique des vérifications</h2>
+  <button id="btnRafraichir" type="button">Rafraîchir la liste</button>
+  
+  <ul id="listeSauvegardes" style="margin-top: 15px;">
+    <li>Chargement des sauvegardes...</li>
+  </ul>
+</div>
         <!-- Form Actions -->
         <div class="form-actions">
             <button type="reset" class="btn btn-secondary"><i data-lucide="rotate-ccw"></i> Réinitialiser</button>
@@ -748,6 +756,75 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
 });
+    // Configuration du dépôt
+const GITHUB_USERNAME = 'martinlefebvre73-bit';
+const REPO_NAME = 'Alizea-maintenance';
+
+/**
+ * Récupère et affiche la liste des fichiers du dossier /sauvegardes
+ */
+async function chargerHistoriqueSauvegardes() {
+  const listeElement = document.getElementById('listeSauvegardes');
+  if (!listeElement) return;
+
+  listeElement.innerHTML = '<li>Chargement en cours...</li>';
+
+  const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/sauvegardes`;
+
+  try {
+    const response = await fetch(url);
+    
+    if (response.status === 404) {
+      listeElement.innerHTML = '<li>Aucune sauvegarde trouvée pour le moment.</li>';
+      return;
+    }
+
+    if (!response.ok) throw new Error('Erreur lors de la récupération');
+
+    const fichiers = await response.json();
+    listeElement.innerHTML = ''; // Vider la liste
+
+    // Filtrer pour ne garder que les fichiers .json
+    const fichiersJson = fichiers.filter(f => f.name.endsWith('.json'));
+
+    if (fichiersJson.length === 0) {
+      listeElement.innerHTML = '<li>Aucun rapport enregistrer.</li>';
+      return;
+    }
+
+    // Parcourir et afficher chaque fichier sous forme de lien
+    fichiersJson.reverse().forEach(fichier => {
+      const li = document.createElement('li');
+      li.style.marginBottom = '8px';
+
+      // Nettoyer le nom du fichier pour un affichage plus propre
+      const nomPropre = fichier.name
+        .replace('verification_', 'Vérification du ')
+        .replace('.json', '')
+        .replace(/T/, ' à ')
+        .replace(/-/g, ':');
+
+      li.innerHTML = `<a href="${fichier.html_url}" target="_blank" rel="noopener noreferrer">📄 ${nomPropre}</a>`;
+      listeElement.appendChild(li);
+    });
+
+  } catch (erreur) {
+    console.error(erreur);
+    listeElement.innerHTML = '<li style="color:red;">Impossible de charger l\'historique.</li>';
+  }
+}
+
+// Déclencher le chargement automatique au lancement de la page
+document.addEventListener('DOMContentLoaded', function() {
+  // Charger l'historique au chargement initial
+  chargerHistoriqueSauvegardes();
+
+  // Relier le bouton de rafraîchissement s'il existe
+  const btnRafraichir = document.getElementById('btnRafraichir');
+  if (btnRafraichir) {
+    btnRafraichir.addEventListener('click', chargerHistoriqueSauvegardes);
+  }
+});  
     </script>
 </body>
 </html>
