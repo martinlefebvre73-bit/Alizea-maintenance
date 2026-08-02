@@ -720,6 +720,34 @@ async function sauvegarderRapportSurGitHub(donneesFormulaire) {
     alert('Impossible de contacter GitHub.');
   }
 }
+    // Attendre que toute la page HTML soit bien chargée
+document.addEventListener('DOMContentLoaded', function() {
+  
+  // 1. Repérer le formulaire HTML par son ID (Exemple: <form id="formulaireMaintenance">)
+  const monFormulaire = document.getElementById('formulaireMaintenance'); 
+
+  if (monFormulaire) {
+    monFormulaire.addEventListener('submit', function(e) {
+      e.preventDefault(); // Empêche la page de se recharger
+
+      // 2. Récupérer les valeurs saisies ou dictées dans vos champs
+      const donneesVerification = {
+        date: new Date().toLocaleString('fr-CA'),
+        // Remplacez les ID entre guillemets par les vrais 'id' de vos champs HTML
+        intervenant: document.getElementById('champIntervenant')?.value || '',
+        equipement: document.getElementById('champEquipement')?.value || '',
+        notes: document.getElementById('champDictation')?.value || '',
+        statut: document.getElementById('champStatut')?.value || ''
+      };
+
+      // 3. Exécuter la sauvegarde vers GitHub
+      sauvegarderRapportSurGitHub(donneesVerification);
+    });
+  } else {
+    console.warn("Le formulaire spécifié n'a pas été trouvé dans le HTML.");
+  }
+
+});
     </script>
 </body>
 </html>
