@@ -6,6 +6,8 @@
     <title>Formulaire d'Entrée de Données - Maintenance & Suivis</title>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- SheetJS pour la génération Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
             --primary: #1e3a8a;
@@ -533,19 +535,10 @@
             </div>
         </div>
 
-        <!-- Section Historique des sauvegardes -->
-        <div id="sectionHistorique" style="margin-top: 30px; padding: 15px; border-top: 2px solid #ccc;">
-            <h2>Historique des vérifications</h2>
-            <button id="btnRafraichir" type="button" class="btn btn-secondary" style="margin-top: 10px;">Rafraîchir la liste</button>
-            <ul id="listeSauvegardes" style="margin-top: 15px; list-style-type: none;">
-                <li>Chargement des sauvegardes...</li>
-            </ul>
-        </div>
-
         <!-- Form Actions -->
         <div class="form-actions">
             <button type="reset" class="btn btn-secondary"><i data-lucide="rotate-ccw"></i> Réinitialiser</button>
-            <button type="submit" class="btn btn-primary"><i data-lucide="download"></i> Enregistrer & Télécharger (.json)</button>
+            <button type="submit" class="btn btn-primary"><i data-lucide="file-spreadsheet"></i> Enregistrer & Télécharger (.xlsx)</button>
         </div>
     </form>
 </div>
@@ -556,15 +549,10 @@
 </div>
 
 <script>
-    // Configuration du dépôt GitHub
-    const GITHUB_USERNAME = 'martinlefebvre73-bit';
-    const REPO_NAME = 'Alizea-maintenance';
-    const GITHUB_TOKEN = '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'; // Remplacez par votre jeton d'accès
-
     // Initialize Lucide Icons
     lucide.createIcons();
 
-    // Reconnaissance vocale Web Speech API
+    // Check Speech Recognition Support
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let activeBtn = null;
@@ -573,7 +561,7 @@
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
         recognition.continuous = false;
-        recognition.lang = 'fr-CA';
+        recognition.lang = 'fr-FR';
         recognition.interimResults = false;
 
         recognition.onstart = function() {
@@ -585,12 +573,16 @@
             const transcript = event.results[0][0].transcript;
             const targetInput = document.getElementById(activeInputId);
             if (targetInput) {
-                targetInput.value = targetInput.value ? targetInput.value + ' ' + transcript : transcript;
+                if (targetInput.value.length > 0) {
+                    targetInput.value += ' ' + transcript;
+                } else {
+                    targetInput.value = transcript;
+                }
             }
         };
 
         recognition.onerror = function(event) {
-            console.error("Erreur de reconnaissance vocale : ", event.error);
+            console.error("Speech Recognition Error: ", event.error);
             stopDictation();
             alert("Erreur de reconnaissance vocale : " + event.error);
         };
@@ -635,142 +627,88 @@
         }
     }
 
-    // Sauvegarde automatique vers GitHub API
-    async function sauvegarderRapportSurGitHub(donneesFormulaire) {
-        const maintenant = new Date();
-        const horodatage = maintenant.toISOString().replace(/[:.]/g, '-');
-        const nomFichier = `sauvegardes/verification_${horodatage}.json`;
-
-        const contenuFichier = JSON.stringify(donneesFormulaire, null, 2);
-        const encoder = new TextEncoder();
-        const data = encoder.encode(contenuFichier);
-        const base64Content = btoa(String.fromCharCode(...data));
-
-        const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${nomFichier}`;
-
-        try {
-            const response = await fetch(url, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `token ${GITHUB_TOKEN}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/vnd.github.v3+json'
-                },
-                body: JSON.stringify({
-                    message: `Ajout automatique du rapport de vérification ${horodatage}`,
-                    content: base64Content
-                })
-            });
-
-            if (response.ok) {
-                console.log('Fichier créé sur GitHub :', nomFichier);
-                chargerHistoriqueSauvegardes();
-            } else {
-                const errorData = await response.json();
-                console.error('Erreur API GitHub :', errorData);
-            }
-        } catch (err) {
-            console.error('Erreur réseau GitHub :', err);
-        }
-    }
-
-    // Gestionnaire de soumission du formulaire
+    // Exportation automatique vers fichier Excel (.xlsx)
     document.getElementById('maintenanceForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
-        const formData = new FormData(this);
-        const data = {
-            horodatage_creation: new Date().toLocaleString('fr-CA')
-        };
-        
-        formData.forEach((value, key) => {
-            if (data[key]) {
-                if (!Array.isArray(data[key])) {
-                    data[key] = [data[key]];
-                }
-                data[key].push(value);
-            } else {
-                data[key] = value;
-            }
-        });
-
-        // 1. Téléchargement du fichier local JSON
         const dateQuart = document.getElementById('date_quart').value || 'sans_date';
-        const fileName = `rapport_maintenance_${dateQuart}.json`;
+        const nomTech = document.getElementById('nom_technicien').value || 'Technicien';
 
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const downloadAnchor = document.createElement('a');
-        
-        downloadAnchor.setAttribute("href", url);
-        downloadAnchor.setAttribute("download", fileName);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        URL.revokeObjectURL(url);
-
-        // 2. Enregistrement asynchrone sur GitHub
-        sauvegarderRapportSurGitHub(data);
-
-        alert(`Rapport enregistré et téléchargé sous le nom "${fileName}" !`);
-    });
-
-    // Chargement de l'historique depuis GitHub
-    async function chargerHistoriqueSauvegardes() {
-        const listeElement = document.getElementById('listeSauvegardes');
-        if (!listeElement) return;
-
-        listeElement.innerHTML = '<li>Chargement en cours...</li>';
-        const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/sauvegardes`;
-
-        try {
-            const response = await fetch(url);
-            
-            if (response.status === 404) {
-                listeElement.innerHTML = '<li>Aucune sauvegarde trouvée pour le moment.</li>';
-                return;
-            }
-
-            if (!response.ok) throw new Error('Erreur lors de la récupération');
-
-            const fichiers = await response.json();
-            listeElement.innerHTML = '';
-
-            const fichiersJson = fichiers.filter(f => f.name.endsWith('.json'));
-
-            if (fichiersJson.length === 0) {
-                listeElement.innerHTML = '<li>Aucun rapport enregistré.</li>';
-                return;
-            }
-
-            fichiersJson.reverse().forEach(fichier => {
-                const li = document.createElement('li');
-                li.style.marginBottom = '8px';
-
-                const nomPropre = fichier.name
-                    .replace('verification_', 'Vérification du ')
-                    .replace('.json', '')
-                    .replace(/T/, ' à ')
-                    .replace(/-/g, ':');
-
-                li.innerHTML = `<a href="${fichier.html_url}" target="_blank" rel="noopener noreferrer">📄 ${nomPropre}</a>`;
-                listeElement.appendChild(li);
-            });
-
-        } catch (erreur) {
-            console.error(erreur);
-            listeElement.innerHTML = '<li style="color:red;">Impossible de charger l\'historique.</li>';
+        // Extraction des catégories cochées
+        const sujetsCoches = [];
+        document.querySelectorAll('input[name="sujets"]:checked').forEach(el => sujetsCoches.push(el.value));
+        if(document.getElementById('sujet_autre').value) {
+            sujetsCoches.push("Autre: " + document.getElementById('sujet_autre').value);
         }
-    }
 
-    // Événements au chargement DOM
-    document.addEventListener('DOMContentLoaded', function() {
-        chargerHistoriqueSauvegardes();
+        // Structuration du tableau pour la feuille Excel
+        const dataRows = [
+            ["REGISTRE ET RAPPORT DE MAINTENANCE"],
+            [""],
+            ["--- INFORMATIONS GÉNÉRALES ---"],
+            ["Date du quart", dateQuart],
+            ["Horaire / Quart de travail", document.getElementById('horaire_quart').value],
+            ["Technicien / Appréciateur", nomTech],
+            [""],
+            ["--- 1. SUJETS TRAITÉS & TYPES D'INTERVENTION ---"],
+            ["Sujets sélectionnés", sujetsCoches.join(" | ")],
+            [""],
+            ["--- 2. REGISTRE DES APPELS DE SERVICE & INTERVENTIONS ---"],
+            ["#", "Logement / Local", "Type / Sujet", "Détail de l'intervention", "Statut", "Suivi Requis?"],
+            [
+                1,
+                document.getElementById('logement_1').value,
+                document.getElementById('type_1').value,
+                document.getElementById('detail_1').value,
+                document.getElementById('statut_1').value,
+                document.getElementById('suivi_1').value
+            ],
+            [
+                2,
+                document.getElementById('logement_2').value,
+                document.getElementById('type_2').value,
+                document.getElementById('detail_2').value,
+                document.getElementById('statut_2').value,
+                document.getElementById('suivi_2').value
+            ],
+            [""],
+            ["--- 3. ENTRETIEN PISCINE / INSTALLATIONS D'EAU ---"],
+            ["Nettoyage effectué", document.getElementById('nettoyage_effectue').checked ? "Oui" : "Non"],
+            ["Produit chimique ajusté", document.getElementById('produit_ajuste').checked ? "Oui" : "Non"],
+            ["État général", document.querySelector('input[name="etat_piscine"]:checked')?.value || "N/A"],
+            ["Détails & Mesures", document.getElementById('details_piscine').value],
+            [""],
+            ["--- 4. TRAVAUX EN COURS & URGENCIES ---"],
+            ["Interventions d'urgence", document.getElementById('urgence_details').value],
+            ["Travaux en cours & Pièces à commander", document.getElementById('travaux_pieces').value],
+            [""],
+            ["--- 5. OBSERVATIONS & VALIDATION ---"],
+            ["Autres observations", document.getElementById('autres_obs').value],
+            ["Nom validation", document.getElementById('nom_validation').value],
+            ["Signature / Code", document.getElementById('sig_validation').value]
+        ];
 
-        const btnRafraichir = document.getElementById('btnRafraichir');
-        if (btnRafraichir) {
-            btnRafraichir.addEventListener('click', chargerHistoriqueSauvegardes);
-        }
+        // Création du classeur Excel via SheetJS
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(dataRows);
+
+        // Largeurs des colonnes
+        ws['!cols'] = [
+            { wch: 25 },
+            { wch: 20 },
+            { wch: 25 },
+            { wch: 45 },
+            { wch: 15 },
+            { wch: 15 }
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, "Rapport Maintenance");
+
+        // Téléchargement du fichier
+        const fileName = `rapport_maintenance_${dateQuart}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+
+        alert(`Le rapport de maintenance a été téléchargé sous le nom "${fileName}" !`);
     });
 </script>
 </body>
