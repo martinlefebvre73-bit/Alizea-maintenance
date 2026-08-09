@@ -6,7 +6,7 @@
     <title>Formulaire d'Entrée de Données - Maintenance & Suivis</title>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- SheetJS pour la génération Excel -->
+    <!-- SheetJS for Excel generation -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -306,6 +306,29 @@
         .btn-secondary:hover {
             background-color: #cbd5e1;
         }
+
+        /* Config Github Callout */
+        .config-card {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        .config-title {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #0369a1;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
     </style>
 </head>
 <body>
@@ -313,11 +336,36 @@
 <div class="container">
     <header>
         <h1>Formulaire d'Entrée de Données</h1>
-        <p>Maintenance & Suivis — Génération automatique des registres d'interventions</p>
+        <p>Maintenance & Suivis — Sauvegarde Locale Excel (.xlsx) & Sauvegarde HTML GitHub</p>
     </header>
 
     <form class="form-body" id="maintenanceForm">
         
+        <!-- Configuration GitHub Optional -->
+        <div class="config-card">
+            <div class="config-title">
+                <i data-lucide="github"></i> Configuration de l'API GitHub (Pour l'envoi automatique vers le dossier sauvegarde)
+            </div>
+            <div class="config-grid">
+                <div class="field-group">
+                    <label for="gh_token">Jeton d'accès (PAT Token)</label>
+                    <input type="password" id="gh_token" placeholder="ghp_xxxxxxxxxxxx">
+                </div>
+                <div class="field-group">
+                    <label for="gh_repo">Dépôt (Utilisateur/Dépôt)</label>
+                    <input type="text" id="gh_repo" placeholder="mon-utilisateur/mon-depot">
+                </div>
+                <div class="field-group">
+                    <label for="gh_branch">Branche</label>
+                    <input type="text" id="gh_branch" value="main">
+                </div>
+                <div class="field-group">
+                    <label for="gh_folder">Dossier de Sauvegarde</label>
+                    <input type="text" id="gh_folder" value="sauvegarde">
+                </div>
+            </div>
+        </div>
+
         <!-- En-tête / Informations générales -->
         <div class="grid-3">
             <div class="field-group">
@@ -538,7 +586,7 @@
         <!-- Form Actions -->
         <div class="form-actions">
             <button type="reset" class="btn btn-secondary"><i data-lucide="rotate-ccw"></i> Réinitialiser</button>
-            <button type="submit" class="btn btn-primary"><i data-lucide="file-spreadsheet"></i> Enregistrer & Télécharger (.xlsx)</button>
+            <button type="submit" class="btn btn-primary"><i data-lucide="file-spreadsheet"></i> Enregistrer Excel & GitHub</button>
         </div>
     </form>
 </div>
@@ -590,11 +638,13 @@
         recognition.onend = function() {
             stopDictation();
         };
+    } else {
+        console.warn("La reconnaissance vocale Web Speech API n'est pas supportée par ce navigateur.");
     }
 
     function toggleDictation(inputId, btn) {
         if (!SpeechRecognition) {
-            alert("La reconnaissance vocale n'est pas supportée par votre navigateur.");
+            alert("La reconnaissance vocale n'est pas supportée par votre navigateur. Veuillez utiliser Chrome, Edge ou Safari.");
             return;
         }
 
@@ -627,36 +677,89 @@
         }
     }
 
-    // Exportation automatique vers fichier Excel (.xlsx)
-    document.getElementById('maintenanceForm').addEventListener('submit', function(e) {
+    // Fonction pour convertir du texte UTF-8 en base64 pour l'API GitHub
+    function utf8ToBase64(str) {
+        return window.btoa(unescape(encodeURIComponent(str)));
+    }
+
+    // Fonction pour capturer l'état exact du formulaire HTML
+    function getFormSnapshotHTML() {
+        // Synchroniser la valeur textuelle des inputs/textareas dans leurs attributs HTML
+        document.querySelectorAll('input[type="text"], input[type="date"], input[type="password"], textarea').forEach(input => {
+            input.setAttribute('value', input.value);
+            if (input.tagName.toLowerCase() === 'textarea') {
+                input.textContent = input.value;
+            }
+        });
+
+        // Synchroniser l'état des cases à cocher et radios
+        document.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(input => {
+            if (input.checked) {
+                input.setAttribute('checked', 'checked');
+            } else {
+                input.removeAttribute('checked');
+            }
+        });
+
+        // Synchroniser l'état des balises <select>
+        document.querySelectorAll('select').forEach(select => {
+            const options = select.querySelectorAll('option');
+            options.forEach(opt => {
+                if (opt.value === select.value) {
+                    opt.setAttribute('selected', 'selected');
+                } else {
+                    opt.removeAttribute('selected');
+                }
+            });
+        });
+
+        // Obtenir l'intégralité du document HTML mis à jour
+        return '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    }
+
+    // Soumission du formulaire
+    document.getElementById('maintenanceForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        const dateQuart = document.getElementById('date_quart').value || 'sans_date';
-        const nomTech = document.getElementById('nom_technicien').value || 'Technicien';
+        const dateQuart = document.getElementById('date_quart').value || new Date().toISOString().split('T')[0];
+        const horaire = document.getElementById('horaire_quart').value || '';
+        const technicien = document.getElementById('nom_technicien').value || '';
 
-        // Extraction des catégories cochées
-        const sujetsCoches = [];
-        document.querySelectorAll('input[name="sujets"]:checked').forEach(el => sujetsCoches.push(el.value));
-        if(document.getElementById('sujet_autre').value) {
-            sujetsCoches.push("Autre: " + document.getElementById('sujet_autre').value);
-        }
+        // 1. Collecter les sujets cochés
+        const sujetsChecked = Array.from(document.querySelectorAll('input[name="sujets"]:checked')).map(el => el.value);
+        const autreSujet = document.getElementById('sujet_autre').value;
+        if (autreSujet) sujetsChecked.push(`Autre: ${autreSujet}`);
 
-        // Structuration du tableau pour la feuille Excel
-        const dataRows = [
-            ["REGISTRE ET RAPPORT DE MAINTENANCE"],
-            [""],
-            ["--- INFORMATIONS GÉNÉRALES ---"],
+        // 2. Construire les données Excel structurées
+        const summaryData = [
+            ["INFORMATIONS GÉNÉRALES DE MAINTENANCE", ""],
             ["Date du quart", dateQuart],
-            ["Horaire / Quart de travail", document.getElementById('horaire_quart').value],
-            ["Technicien / Appréciateur", nomTech],
-            [""],
-            ["--- 1. SUJETS TRAITÉS & TYPES D'INTERVENTION ---"],
-            ["Sujets sélectionnés", sujetsCoches.join(" | ")],
-            [""],
-            ["--- 2. REGISTRE DES APPELS DE SERVICE & INTERVENTIONS ---"],
-            ["#", "Logement / Local", "Type / Sujet", "Détail de l'intervention", "Statut", "Suivi Requis?"],
+            ["Horaire / Quart", horaire],
+            ["Technicien / Appréciateur", technicien],
+            ["", ""],
+            ["SUJETS TRAITÉS & TYPES D'INTERVENTION", ""],
+            ["Sujets sélectionnés", sujetsChecked.join(', ') || "Aucun"],
+            ["", ""],
+            ["ENTRETIEN PISCINE & EAU", ""],
+            ["Nettoyage effectué", document.getElementById('nettoyage_effectue').checked ? "Oui" : "Non"],
+            ["Produit chimique ajusté", document.getElementById('produit_ajuste').checked ? "Oui" : "Non"],
+            ["État général piscine", document.querySelector('input[name="etat_piscine"]:checked')?.value || "N/A"],
+            ["Détails / Mesures", document.getElementById('details_piscine').value],
+            ["", ""],
+            ["OBSERVATIONS & TRAVAUX", ""],
+            ["Interventions d'urgence", document.getElementById('urgence_details').value],
+            ["Suivi travaux & pièces", document.getElementById('travaux_pieces').value],
+            ["Autres observations", document.getElementById('autres_obs').value],
+            ["", ""],
+            ["VALIDATION", ""],
+            ["Validation par", document.getElementById('nom_validation').value],
+            ["Signature / Code", document.getElementById('sig_validation').value]
+        ];
+
+        const interventionsData = [
+            ["N°", "Logement / Local", "Type / Sujet", "Détails Intervention", "Statut", "Suivi Requis"],
             [
-                1,
+                "1",
                 document.getElementById('logement_1').value,
                 document.getElementById('type_1').value,
                 document.getElementById('detail_1').value,
@@ -664,51 +767,98 @@
                 document.getElementById('suivi_1').value
             ],
             [
-                2,
+                "2",
                 document.getElementById('logement_2').value,
                 document.getElementById('type_2').value,
                 document.getElementById('detail_2').value,
                 document.getElementById('statut_2').value,
                 document.getElementById('suivi_2').value
-            ],
-            [""],
-            ["--- 3. ENTRETIEN PISCINE / INSTALLATIONS D'EAU ---"],
-            ["Nettoyage effectué", document.getElementById('nettoyage_effectue').checked ? "Oui" : "Non"],
-            ["Produit chimique ajusté", document.getElementById('produit_ajuste').checked ? "Oui" : "Non"],
-            ["État général", document.querySelector('input[name="etat_piscine"]:checked')?.value || "N/A"],
-            ["Détails & Mesures", document.getElementById('details_piscine').value],
-            [""],
-            ["--- 4. TRAVAUX EN COURS & URGENCIES ---"],
-            ["Interventions d'urgence", document.getElementById('urgence_details').value],
-            ["Travaux en cours & Pièces à commander", document.getElementById('travaux_pieces').value],
-            [""],
-            ["--- 5. OBSERVATIONS & VALIDATION ---"],
-            ["Autres observations", document.getElementById('autres_obs').value],
-            ["Nom validation", document.getElementById('nom_validation').value],
-            ["Signature / Code", document.getElementById('sig_validation').value]
+            ]
         ];
 
-        // Création du classeur Excel via SheetJS
         const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.aoa_to_sheet(dataRows);
+        const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+        wsSummary['!cols'] = [{ wch: 30 }, { wch: 60 }];
+        XLSX.utils.book_append_sheet(wb, wsSummary, "Synthèse");
 
-        // Largeurs des colonnes
-        ws['!cols'] = [
-            { wch: 25 },
-            { wch: 20 },
-            { wch: 25 },
-            { wch: 45 },
-            { wch: 15 },
-            { wch: 15 }
-        ];
+        const wsInterventions = XLSX.utils.aoa_to_sheet(interventionsData);
+        wsInterventions['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 20 }, { wch: 40 }, { wch: 12 }, { wch: 12 }];
+        XLSX.utils.book_append_sheet(wb, wsInterventions, "Interventions");
 
-        XLSX.utils.book_append_sheet(wb, ws, "Rapport Maintenance");
+        const excelFileName = `rapport_maintenance_${dateQuart}.xlsx`;
+        const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
 
-        // Téléchargement du fichier
-        const fileName = `rapport_maintenance_${dateQuart}.xlsx`;
-        XLSX.writeFile(wb, fileName);
+        // A. SAUVEGARDE LOCALE (Téléchargement du fichier .xlsx)
+        const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = excelFileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
 
-        alert(`Le rapport de maintenance a été téléchargé sous le nom "${fileName}" !`);
+        // B. ENVOI DE LA COPIE HTML DU FORMULAIRE AU DOSSIER SAUVEGARDE GITHUB
+        const token = document.getElementById('gh_token').value.trim();
+        const repo = document.getElementById('gh_repo').value.trim();
+        const branch = document.getElementById('gh_branch').value.trim() || 'main';
+        const folder = document.getElementById('gh_folder').value.trim() || 'sauvegarde';
+
+        if (token && repo) {
+            try {
+                // Nom du fichier HTML sauvegardé sur GitHub
+                const htmlFileName = `rapport_maintenance_${dateQuart}.html`;
+
+                // Obtenir le contenu HTML complet incluant les réponses saisies
+                const htmlSnapshot = getFormSnapshotHTML();
+                const base64Content = utf8ToBase64(htmlSnapshot);
+
+                const path = `${folder}/${htmlFileName}`;
+                const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
+
+                // Vérifier si le fichier existe déjà sur la branche pour récupérer son SHA (mise à jour)
+                let sha = null;
+                const checkRes = await fetch(`${apiUrl}?ref=${branch}`, {
+                    headers: { 'Authorization': `token ${token}` }
+                });
+                if (checkRes.ok) {
+                    const checkData = await checkRes.json();
+                    sha = checkData.sha;
+                }
+
+                // Envoi / Commit sur GitHub
+                const bodyData = {
+                    message: `Sauvegarde HTML rapport maintenance: ${htmlFileName}`,
+                    content: base64Content,
+                    branch: branch
+                };
+                if (sha) bodyData.sha = sha;
+
+                const putRes = await fetch(apiUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(bodyData)
+                });
+
+                if (putRes.ok) {
+                    alert(`✅ Fichier Excel enregistré localement ET la copie exacte (.html) a été enregistrée avec succès dans le dossier '${folder}' sur GitHub !`);
+                } else {
+                    const errData = await putRes.json();
+                    alert(`⚠️ Excel enregistré localement, mais échec de l'envoi HTML vers GitHub : ${errData.message || putRes.statusText}`);
+                }
+            } catch (err) {
+                console.error("Erreur GitHub:", err);
+                alert(`⚠️ Excel enregistré localement. Erreur lors de l'envoi HTML vers GitHub: ${err.message}`);
+            }
+        } else {
+            alert(`✅ Fichier Excel enregistré localement sous le nom "${excelFileName}".
+
+(Remarque: Pour activer la copie HTML vers GitHub, remplissez le Token et le Dépôt GitHub dans la section de configuration).`);
+        }
     });
 </script>
 </body>
