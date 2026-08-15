@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Formulaire d'Entrée de Données - Maintenance & Suivis</title>
+    <title>Résidence ALIZÉA - Formulaire de Maintenance & Suivis</title>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- SheetJS for Excel generation -->
+    <!-- SheetJS pour la génération Excel -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -37,7 +37,7 @@
         }
 
         .container {
-            max-width: 900px;
+            max-width: 920px;
             margin: 0 auto;
             background: var(--card-bg);
             border-radius: 12px;
@@ -54,14 +54,14 @@
         }
 
         header h1 {
-            font-size: 1.5rem;
+            font-size: 1.6rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 6px;
         }
 
         header p {
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             opacity: 0.9;
             font-weight: 300;
         }
@@ -100,6 +100,7 @@
 
         input[type="text"],
         input[type="date"],
+        input[type="password"],
         select,
         textarea {
             width: 100%;
@@ -335,25 +336,25 @@
 
 <div class="container">
     <header>
-        <h1>Formulaire d'Entrée de Données</h1>
-        <p>Maintenance & Suivis — Sauvegarde Locale Excel (.xlsx) & Sauvegarde HTML GitHub</p>
+        <h1>Résidence ALIZÉA — Formulaire de Maintenance</h1>
+        <p>Saisie des données de suivi, export Excel (.xlsx) & Sauvegarde GitHub</p>
     </header>
 
     <form class="form-body" id="maintenanceForm">
         
-        <!-- Configuration GitHub Optional -->
+        <!-- Configuration GitHub préremplie avec le dépôt permanent -->
         <div class="config-card">
             <div class="config-title">
-                <i data-lucide="github"></i> Configuration de l'API GitHub (Pour l'envoi automatique vers le dossier sauvegarde)
+                <i data-lucide="github"></i> Configuration de l'API GitHub
             </div>
             <div class="config-grid">
                 <div class="field-group">
                     <label for="gh_token">Jeton d'accès (PAT Token)</label>
-                    <input type="password" id="gh_token" placeholder="ghp_xxxxxxxxxxxx">
+                    <input type="password" id="gh_token" placeholder="ghp_xxxxxxxxxxxx" autocomplete="current-password">
                 </div>
                 <div class="field-group">
-                    <label for="gh_repo">Dépôt (Utilisateur/Dépôt)</label>
-                    <input type="text" id="gh_repo" placeholder="mon-utilisateur/mon-depot">
+                    <label for="gh_repo">Dépôt GitHub</label>
+                    <input type="text" id="gh_repo" value="martinlefebvre73-bit/Alizea-maintenance">
                 </div>
                 <div class="field-group">
                     <label for="gh_branch">Branche</label>
@@ -600,6 +601,9 @@
     // Initialize Lucide Icons
     lucide.createIcons();
 
+    // Set today date by default
+    document.getElementById('date_quart').valueAsDate = new Date();
+
     // Check Speech Recognition Support
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
@@ -788,7 +792,7 @@
         const excelFileName = `rapport_maintenance_${dateQuart}.xlsx`;
         const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
 
-        // A. SAUVEGARDE LOCALE (Téléchargement du fichier .xlsx)
+        // SAUVEGARDE LOCALE (Téléchargement du fichier .xlsx)
         const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -799,65 +803,47 @@
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        // B. ENVOI DE LA COPIE HTML DU FORMULAIRE AU DOSSIER SAUVEGARDE GITHUB
-        const token = document.getElementById('gh_token').value.trim();
-        const repo = document.getElementById('gh_repo').value.trim();
-        const branch = document.getElementById('gh_branch').value.trim() || 'main';
-        const folder = document.getElementById('gh_folder').value.trim() || 'sauvegarde';
+        // SAUVEGARDE GITHUB (API)
+        const ghToken = document.getElementById('gh_token').value.trim();
+        const ghRepo = document.getElementById('gh_repo').value.trim();
+        const ghBranch = document.getElementById('gh_branch').value.trim() || 'main';
+        const ghFolder = document.getElementById('gh_folder').value.trim() || 'sauvegarde';
 
-        if (token && repo) {
+        if (ghToken && ghRepo) {
             try {
-                // Nom du fichier HTML sauvegardé sur GitHub
-                const htmlFileName = `rapport_maintenance_${dateQuart}.html`;
-
-                // Obtenir le contenu HTML complet incluant les réponses saisies
-                const htmlSnapshot = getFormSnapshotHTML();
-                const base64Content = utf8ToBase64(htmlSnapshot);
-
-                const path = `${folder}/${htmlFileName}`;
-                const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
-
-                // Vérifier si le fichier existe déjà sur la branche pour récupérer son SHA (mise à jour)
-                let sha = null;
-                const checkRes = await fetch(`${apiUrl}?ref=${branch}`, {
-                    headers: { 'Authorization': `token ${token}` }
-                });
-                if (checkRes.ok) {
-                    const checkData = await checkRes.json();
-                    sha = checkData.sha;
-                }
-
-                // Envoi / Commit sur GitHub
-                const bodyData = {
-                    message: `Sauvegarde HTML rapport maintenance: ${htmlFileName}`,
-                    content: base64Content,
-                    branch: branch
-                };
-                if (sha) bodyData.sha = sha;
-
-                const putRes = await fetch(apiUrl, {
+                const htmlContent = getFormSnapshotHTML();
+                const base64Content = utf8ToBase64(htmlContent);
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const filePath = `${ghFolder}/maintenance_snapshot_${dateQuart}_${timestamp}.html`;
+                
+                const apiUrl = `https://api.github.com/repos/${ghRepo}/contents/${filePath}`;
+                
+                const response = await fetch(apiUrl, {
                     method: 'PUT',
                     headers: {
-                        'Authorization': `token ${token}`,
-                        'Content-Type': 'application/json'
+                        'Authorization': `token ${ghToken}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/vnd.github.v3+json'
                     },
-                    body: JSON.stringify(bodyData)
+                    body: JSON.stringify({
+                        message: `Sauvegarde automatique formulaire maintenance du ${dateQuart}`,
+                        content: base64Content,
+                        branch: ghBranch
+                    })
                 });
 
-                if (putRes.ok) {
-                    alert(`✅ Fichier Excel enregistré localement ET la copie exacte (.html) a été enregistrée avec succès dans le dossier '${folder}' sur GitHub !`);
+                if (response.ok) {
+                    alert(`Fichier Excel téléchargé avec succès !\nSauvegarde HTML enregistrée sur GitHub sous: ${filePath}`);
                 } else {
-                    const errData = await putRes.json();
-                    alert(`⚠️ Excel enregistré localement, mais échec de l'envoi HTML vers GitHub : ${errData.message || putRes.statusText}`);
+                    const errData = await response.json();
+                    alert(`Fichier Excel téléchargé.\nErreur lors de la sauvegarde GitHub: ${errData.message}`);
                 }
             } catch (err) {
-                console.error("Erreur GitHub:", err);
-                alert(`⚠️ Excel enregistré localement. Erreur lors de l'envoi HTML vers GitHub: ${err.message}`);
+                console.error(err);
+                alert(`Fichier Excel téléchargé.\nÉchec de la connexion à l'API GitHub: ${err.message}`);
             }
         } else {
-            alert(`✅ Fichier Excel enregistré localement sous le nom "${excelFileName}".
-
-(Remarque: Pour activer la copie HTML vers GitHub, remplissez le Token et le Dépôt GitHub dans la section de configuration).`);
+            alert("Fichier Excel téléchargé localement !\n(Note: Pas de sauvegarde GitHub effectuée car le jeton n'est pas renseigné)");
         }
     });
 </script>
